@@ -237,8 +237,28 @@ export async function getAuditLogs(options: {
   return { logs, total };
 }
 
+/**
+ * Generic audit log helper (for controllers)
+ */
+export async function logAudit(params: {
+  userId: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  details?: Record<string, unknown>;
+}): Promise<void> {
+  await createAuditLog({
+    eventType: `${params.resourceType}_${params.action.split('.')[1] || params.action}` as AuditEventType,
+    actor: params.userId,
+    resourceId: params.resourceId,
+    action: params.action,
+    changes: params.details,
+  });
+}
+
 export default {
   createAuditLog,
+  logAudit,
   logAdminLogin,
   logAdminLogout,
   logComplaintCreated,

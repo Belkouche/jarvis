@@ -50,7 +50,7 @@ model Complaint {
   message           String?   @db.Text
   status            String    @default("open") @db.VarChar(50)
   priority          String    @default("medium") @db.VarChar(50)
-  assignedTo        String?   @map("assigned_to") @db.VarChar(255)
+  assignedTo        String?   @map("assigned_to")
   escalatedToOrange Boolean   @default(false) @map("escalated_to_orange")
   orangeTicketId    String?   @map("orange_ticket_id") @db.VarChar(100)
   notes             String?   @db.Text
@@ -59,6 +59,7 @@ model Complaint {
 
   messageLogId      String?   @map("message_log_id")
   messageLog        Message?  @relation(fields: [messageLogId], references: [id])
+  assignedToUser    AdminUser? @relation(fields: [assignedTo], references: [id])
   tickets           Ticket[]
 
   @@index([status])
@@ -165,6 +166,8 @@ model AdminUser {
   lastLoginAt DateTime? @map("last_login_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  assignedComplaints Complaint[]
 
   @@map("admin_users")
 }

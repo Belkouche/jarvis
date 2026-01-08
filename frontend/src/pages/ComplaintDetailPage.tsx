@@ -180,11 +180,11 @@ export default function ComplaintDetailPage() {
               </div>
             </div>
 
-            {complaint.description && (
+            {complaint.message && (
               <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-sm text-gray-500 mb-2">Description</p>
+                <p className="text-sm text-gray-500 mb-2">Message</p>
                 <p className="text-gray-900 whitespace-pre-wrap">
-                  {complaint.description}
+                  {complaint.message}
                 </p>
               </div>
             )}
@@ -378,13 +378,13 @@ export default function ComplaintDetailPage() {
           )}
 
           {/* Related message */}
-          {complaint.messageId && (
+          {complaint.messageLogId && (
             <div className="card p-6">
               <h3 className="text-sm font-medium text-gray-600 mb-3">
                 Related Message
               </h3>
               <Link
-                to={`/messages/${complaint.messageId}`}
+                to={`/messages/${complaint.messageLogId}`}
                 className="text-orange-600 hover:text-orange-700 flex items-center gap-1"
               >
                 View original message

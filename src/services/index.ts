@@ -4,3 +4,4 @@ export * from './crmService.js';
 export * from './messageService.js';
 export * from './evolutionApiService.js';
 export * from './auditService.js';
+export * from './websocketService.js';

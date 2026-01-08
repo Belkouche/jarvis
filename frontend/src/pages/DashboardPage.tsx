@@ -44,6 +44,11 @@ export default function DashboardPage() {
 
   const statsData = stats?.data;
 
+  // Parse success rate (comes as "XX.XX%" string)
+  const successRateNum = statsData?.successRate
+    ? parseFloat(statsData.successRate.replace('%', ''))
+    : 0;
+
   // Mock data for charts (in production, this would come from the API)
   const messageVolumeData = [
     { name: 'Mon', messages: 45 },
@@ -56,10 +61,10 @@ export default function DashboardPage() {
   ];
 
   const intentData = [
-    { name: 'Contract Status', value: statsData?.byIntent?.contract_status || 65, color: INTENT_COLORS.contract_status },
-    { name: 'Complaints', value: statsData?.byIntent?.complaint || 15, color: INTENT_COLORS.complaint },
-    { name: 'Greetings', value: statsData?.byIntent?.greeting || 12, color: INTENT_COLORS.greeting },
-    { name: 'Other', value: statsData?.byIntent?.other || 8, color: INTENT_COLORS.other },
+    { name: 'Contract Status', value: statsData?.byIntent?.contract_status ?? 65, color: INTENT_COLORS.contract_status },
+    { name: 'Complaints', value: statsData?.byIntent?.complaint ?? 15, color: INTENT_COLORS.complaint },
+    { name: 'Greetings', value: statsData?.byIntent?.greeting ?? 12, color: INTENT_COLORS.greeting },
+    { name: 'Other', value: statsData?.byIntent?.other ?? 8, color: INTENT_COLORS.other },
   ];
 
   return (
@@ -95,7 +100,7 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm text-gray-600">Avg Response Time</p>
               <p className="text-2xl font-bold text-gray-900">
-                {statsData?.avgResponseTime || '0'}ms
+                {statsData?.avgLatencyMs ?? statsData?.avgResponseTime ?? 0}ms
               </p>
             </div>
           </div>
@@ -109,7 +114,7 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm text-gray-600">Success Rate</p>
               <p className="text-2xl font-bold text-gray-900">
-                {statsData?.successRate || '0'}%
+                {successRateNum.toFixed(1)}%
               </p>
             </div>
           </div>
@@ -121,9 +126,9 @@ export default function DashboardPage() {
               <AlertTriangle className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Open Complaints</p>
+              <p className="text-sm text-gray-600">Complaints</p>
               <p className="text-2xl font-bold text-gray-900">
-                {statsData?.openComplaints || '0'}
+                {statsData?.complaintsCount ?? statsData?.openComplaints ?? 0}
               </p>
             </div>
           </div>
@@ -225,44 +230,50 @@ export default function DashboardPage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <p className="text-sm text-gray-600 mb-1">LM Studio Latency</p>
+            <p className="text-sm text-gray-600 mb-1">Avg Latency</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-orange-500 rounded-full"
-                  style={{ width: `${Math.min((statsData?.avgLmLatency || 0) / 100, 100)}%` }}
+                  style={{ width: `${Math.min((statsData?.avgLatencyMs ?? statsData?.avgLmLatency ?? 0) / 100, 100)}%` }}
                 />
               </div>
               <span className="text-sm font-medium text-gray-900">
-                {statsData?.avgLmLatency || 0}ms
+                {statsData?.avgLatencyMs ?? statsData?.avgLmLatency ?? 0}ms
               </span>
             </div>
           </div>
           <div>
-            <p className="text-sm text-gray-600 mb-1">CRM Lookup Latency</p>
+            <p className="text-sm text-gray-600 mb-1">Fallback Rate</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-500 rounded-full"
-                  style={{ width: `${Math.min((statsData?.avgCrmLatency || 0) / 100, 100)}%` }}
+                  className="h-full bg-yellow-500 rounded-full"
+                  style={{ width: `${statsData?.fallbackRate ? parseFloat(statsData.fallbackRate.replace('%', '')) : 0}%` }}
                 />
               </div>
               <span className="text-sm font-medium text-gray-900">
-                {statsData?.avgCrmLatency || 0}ms
+                {statsData?.fallbackRate ?? '0%'}
               </span>
             </div>
           </div>
           <div>
-            <p className="text-sm text-gray-600 mb-1">Cache Hit Rate</p>
+            <p className="text-sm text-gray-600 mb-1">Error Rate</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-green-500 rounded-full"
-                  style={{ width: `${statsData?.cacheHitRate || 0}%` }}
+                  className="h-full bg-red-500 rounded-full"
+                  style={{
+                    width: `${statsData?.totalMessages
+                      ? ((statsData.errorMessages / statsData.totalMessages) * 100)
+                      : 0}%`
+                  }}
                 />
               </div>
               <span className="text-sm font-medium text-gray-900">
-                {statsData?.cacheHitRate || 0}%
+                {statsData?.totalMessages
+                  ? ((statsData.errorMessages / statsData.totalMessages) * 100).toFixed(1)
+                  : 0}%
               </span>
             </div>
           </div>

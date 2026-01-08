@@ -4,6 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import * as complaintService from '../services/complaintService';
 import * as orangeTicketService from '../services/orangeTicketService';
 import * as notificationService from '../services/notificationService';
+import * as websocketService from '../services/websocketService';
 import { logAudit } from '../services/auditService';
 import { ComplaintStatus, ComplaintPriority } from '@prisma/client';
 
@@ -122,6 +123,9 @@ export const assignComplaint = asyncHandler(async (req: Request, res: Response) 
   // Notify the assigned user
   await notificationService.sendAssignmentNotification(assignedTo, complaint);
 
+  // WebSocket notification
+  websocketService.notifyComplaintAssignment(id, assignedTo, complaint.contractNumber);
+
   res.json({
     success: true,
     data: complaint,
@@ -179,7 +183,7 @@ export const escalateToOrange = asyncHandler(async (req: Request, res: Response)
     complaintId: id,
     contractNumber: complaint.contractNumber,
     phone: complaint.phone,
-    description: complaint.description || '',
+    description: complaint.message || '',
     priority: complaint.priority,
     complaintType: complaint.complaintType,
   });
@@ -197,6 +201,13 @@ export const escalateToOrange = asyncHandler(async (req: Request, res: Response)
 
   // Notify admins about escalation
   await notificationService.sendEscalationNotification(complaint, ticket);
+
+  // WebSocket notification
+  websocketService.notifyComplaintEscalation({
+    id,
+    contractNumber: complaint.contractNumber,
+    orangeTicketId: ticket.orangeTicketId,
+  });
 
   res.json({
     success: true,
@@ -237,6 +248,13 @@ export const resolveComplaint = asyncHandler(async (req: Request, res: Response)
     resourceType: 'complaint',
     resourceId: id,
     details: { resolution },
+  });
+
+  // WebSocket notification
+  websocketService.notifyComplaintResolution({
+    id,
+    contractNumber: complaint.contractNumber,
+    resolution,
   });
 
   res.json({

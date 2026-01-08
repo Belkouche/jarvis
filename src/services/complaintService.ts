@@ -45,9 +45,9 @@ export interface CreateComplaintInput {
   contractorName?: string;
   contractNumber: string;
   complaintType: string;
-  description: string;
+  message: string;
   priority: ComplaintPriority;
-  messageId?: string;
+  messageLogId?: string;
 }
 
 /**
@@ -157,10 +157,10 @@ export async function createComplaint(
       contractorName: input.contractorName,
       contractNumber: input.contractNumber,
       complaintType: input.complaintType,
-      description: input.description,
+      message: input.message,
       priority: input.priority,
       status: 'open',
-      messageId: input.messageId,
+      messageLogId: input.messageLogId,
     },
   });
 
@@ -181,8 +181,10 @@ export async function getComplaintById(id: string): Promise<Complaint | null> {
   return prisma.complaint.findUnique({
     where: { id },
     include: {
-      message: true,
-      assignedToUser: true,
+      messageLog: true,
+      assignedToUser: {
+        select: { id: true, name: true, email: true },
+      },
       tickets: true,
     },
   });

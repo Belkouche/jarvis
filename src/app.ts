@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import http from 'http';
 
 // Load environment variables first
 dotenv.config();
@@ -19,6 +20,7 @@ import authRoutes from './routes/auth.js';
 import dashboardRoutes from './routes/dashboard.js';
 import complaintRoutes from './routes/complaints.js';
 import { scheduleEscalationWorkflow } from './services/escalationService.js';
+import { initWebSocket } from './services/websocketService.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -76,7 +78,7 @@ async function gracefulShutdown(signal: string) {
   }
 
   // Stop accepting new connections
-  server.close(async () => {
+  httpServer.close(async () => {
     logger.info('HTTP server closed');
 
     try {
@@ -108,12 +110,17 @@ async function startServer() {
     // Connect to Redis
     await connectRedis();
 
+    // Create HTTP server and initialize WebSocket
+    httpServer = http.createServer(app);
+    initWebSocket(httpServer);
+
     // Start listening
-    server = app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       logger.info(`JARVIS server started`, {
         port: PORT,
         environment: process.env.NODE_ENV || 'development',
         nodeVersion: process.version,
+        websocket: true,
       });
 
       // Start escalation workflow scheduler (runs every 30 minutes)
@@ -144,7 +151,7 @@ async function startServer() {
   }
 }
 
-let server: ReturnType<typeof app.listen>;
+let httpServer: http.Server;
 let escalationInterval: NodeJS.Timeout;
 
 startServer();

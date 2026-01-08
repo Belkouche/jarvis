@@ -66,7 +66,7 @@ describe('Complaint Flow Integration Tests', () => {
           phone: testPhone,
           contractNumber: testContract,
           complaintType: 'delay',
-          description: 'Test complaint',
+          message: 'Test complaint',
           priority: 'medium',
           status: 'open',
         },

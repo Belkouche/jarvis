@@ -69,21 +69,24 @@ export interface CRMStatus {
   date_created: string | null;
 }
 
-// Stats types
+// Stats types - matches API response from /api/dashboard/stats
 export interface MessageStats {
   period: string;
   totalMessages: number;
   successMessages: number;
   errorMessages: number;
-  successRate: number;
-  openComplaints: number;
-  avgResponseTime: number;
-  avgLmLatency: number;
-  avgCrmLatency: number;
-  cacheHitRate: number;
+  successRate: string; // Comes as "XX.XX%" from API
+  complaintsCount: number;
+  avgLatencyMs: number;
   fallbackCount: number;
-  fallbackRate: number;
-  byIntent: {
+  fallbackRate: string; // Comes as "XX.XX%" from API
+  // Optional fields for extended stats (if implemented)
+  openComplaints?: number;
+  avgResponseTime?: number;
+  avgLmLatency?: number;
+  avgCrmLatency?: number;
+  cacheHitRate?: number;
+  byIntent?: {
     contract_status: number;
     complaint: number;
     greeting: number;
@@ -98,7 +101,7 @@ export interface Complaint {
   contractorName: string | null;
   contractNumber: string;
   complaintType: string;
-  description: string | null;
+  message: string | null;
   status: 'open' | 'assigned' | 'escalated' | 'resolved';
   priority: 'low' | 'medium' | 'high';
   assignedTo: string | null;
@@ -110,7 +113,7 @@ export interface Complaint {
   escalatedToOrange: boolean;
   orangeTicketId: string | null;
   notes: string | null;
-  messageId: string | null;
+  messageLogId: string | null;
   tickets?: Ticket[];
   createdAt: string;
   updatedAt: string;
