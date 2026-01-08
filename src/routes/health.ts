@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../config/database.js';
 import { getRedisClient } from '../config/redis.js';
 import type { ApiResponse } from '../types/index.js';
+import * as metricsService from '../services/metricsService.js';
 
 const router = Router();
 
@@ -93,6 +94,33 @@ router.get('/live', (_req: Request, res: Response<ApiResponse<{ live: boolean }>
     success: true,
     data: { live: true },
   });
+});
+
+// Metrics endpoint for monitoring
+router.get('/health/metrics', async (_req: Request, res: Response) => {
+  try {
+    const metrics = await metricsService.getAllMetrics();
+    res.json({
+      success: true,
+      data: metrics,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to collect metrics',
+    });
+  }
+});
+
+// Prometheus-compatible metrics endpoint
+router.get('/metrics', async (_req: Request, res: Response) => {
+  try {
+    const metrics = await metricsService.getPrometheusMetrics();
+    res.set('Content-Type', 'text/plain');
+    res.send(metrics);
+  } catch (error) {
+    res.status(500).send('# Error collecting metrics');
+  }
 });
 
 export default router;

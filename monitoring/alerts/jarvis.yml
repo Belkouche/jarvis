@@ -1,0 +1,118 @@
+groups:
+  - name: jarvis-alerts
+    rules:
+      # API Health
+      - alert: JarvisAPIDown
+        expr: up{job="jarvis-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JARVIS API is down"
+          description: "The JARVIS API has been unreachable for more than 1 minute."
+
+      - alert: JarvisHighLatency
+        expr: jarvis_message_latency_ms > 2000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JARVIS high message latency"
+          description: "Average message processing latency is {{ $value }}ms (threshold: 2000ms)"
+
+      - alert: JarvisHighErrorRate
+        expr: rate(jarvis_messages_errors_total[5m]) / rate(jarvis_messages_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JARVIS high error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+      # Complaints
+      - alert: JarvisHighOpenComplaints
+        expr: jarvis_complaints_open > 50
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of open complaints"
+          description: "There are {{ $value }} open complaints"
+
+      - alert: JarvisComplaintsNotProcessed
+        expr: increase(jarvis_complaints_open[1h]) > 10 and jarvis_complaints_escalated == 0
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Complaints not being processed"
+          description: "Complaints are accumulating without escalation"
+
+      # System Resources
+      - alert: JarvisHighMemoryUsage
+        expr: jarvis_memory_usage_mb > 800
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JARVIS high memory usage"
+          description: "Memory usage is {{ $value }}MB"
+
+      - alert: JarvisLowCacheHitRate
+        expr: jarvis_cache_hit_rate < 30
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value }}%"
+
+      # LM Studio
+      - alert: JarvisLMStudioHighFallback
+        expr: jarvis_lm_fallback_rate > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High LM Studio fallback rate"
+          description: "LM Studio fallback rate is {{ $value }}%"
+
+  - name: infrastructure-alerts
+    rules:
+      # Database
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is unreachable"
+
+      - alert: PostgresHighConnections
+        expr: pg_stat_activity_count > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High PostgreSQL connections"
+          description: "{{ $value }} active connections (max: 100)"
+
+      # Redis
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache is unreachable"
+
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis is using {{ $value | humanizePercentage }} of max memory"
