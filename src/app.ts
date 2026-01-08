@@ -13,6 +13,8 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/logging.js';
 import { globalRateLimiter } from './middleware/rateLimit.js';
 import healthRoutes from './routes/health.js';
+import webhookRoutes from './routes/webhook.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -46,12 +48,12 @@ app.use(globalRateLimiter);
 // Health check routes (no auth required)
 app.use('/', healthRoutes);
 
-// API routes will be added here
-// app.use('/api/webhook', webhookRoutes);
-// app.use('/api/auth', authRoutes);
-// app.use('/api/dashboard', dashboardRoutes);
-// app.use('/api/complaints', complaintRoutes);
-// app.use('/api/tickets', ticketRoutes);
+// API routes
+app.use('/api/webhook', webhookRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+// app.use('/api/auth', authRoutes);  // Week 4
+// app.use('/api/complaints', complaintRoutes);  // Week 5
+// app.use('/api/tickets', ticketRoutes);  // Week 5
 
 // 404 handler
 app.use(notFoundHandler);
