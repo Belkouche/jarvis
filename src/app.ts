@@ -17,6 +17,8 @@ import healthRoutes from './routes/health.js';
 import webhookRoutes from './routes/webhook.js';
 import authRoutes from './routes/auth.js';
 import dashboardRoutes from './routes/dashboard.js';
+import complaintRoutes from './routes/complaints.js';
+import { scheduleEscalationWorkflow } from './services/escalationService.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -55,8 +57,7 @@ app.use('/', healthRoutes);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-// app.use('/api/complaints', complaintRoutes);  // Week 5
-// app.use('/api/tickets', ticketRoutes);  // Week 5
+app.use('/api/complaints', complaintRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -67,6 +68,12 @@ app.use(errorHandler);
 // Graceful shutdown handler
 async function gracefulShutdown(signal: string) {
   logger.info(`Received ${signal}, starting graceful shutdown...`);
+
+  // Clear scheduled tasks
+  if (escalationInterval) {
+    clearInterval(escalationInterval);
+    logger.info('Escalation workflow scheduler stopped');
+  }
 
   // Stop accepting new connections
   server.close(async () => {
@@ -108,6 +115,12 @@ async function startServer() {
         environment: process.env.NODE_ENV || 'development',
         nodeVersion: process.version,
       });
+
+      // Start escalation workflow scheduler (runs every 30 minutes)
+      if (process.env.ENABLE_ESCALATION_WORKFLOW !== 'false') {
+        escalationInterval = scheduleEscalationWorkflow(30);
+        logger.info('Escalation workflow scheduled');
+      }
     });
 
     // Handle graceful shutdown
@@ -132,6 +145,7 @@ async function startServer() {
 }
 
 let server: ReturnType<typeof app.listen>;
+let escalationInterval: NodeJS.Timeout;
 
 startServer();
 

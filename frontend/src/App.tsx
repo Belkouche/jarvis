@@ -8,6 +8,8 @@ import VerifyPage from './pages/VerifyPage';
 import DashboardPage from './pages/DashboardPage';
 import MessagesPage from './pages/MessagesPage';
 import MessageDetailPage from './pages/MessageDetailPage';
+import ComplaintsPage from './pages/ComplaintsPage';
+import ComplaintDetailPage from './pages/ComplaintDetailPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -73,6 +75,8 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="messages" element={<MessagesPage />} />
           <Route path="messages/:id" element={<MessageDetailPage />} />
+          <Route path="complaints" element={<ComplaintsPage />} />
+          <Route path="complaints/:id" element={<ComplaintDetailPage />} />
         </Route>
 
         {/* Fallback */}

@@ -3,3 +3,5 @@ export { default as VerifyPage } from './VerifyPage';
 export { default as DashboardPage } from './DashboardPage';
 export { default as MessagesPage } from './MessagesPage';
 export { default as MessageDetailPage } from './MessageDetailPage';
+export { default as ComplaintsPage } from './ComplaintsPage';
+export { default as ComplaintDetailPage } from './ComplaintDetailPage';

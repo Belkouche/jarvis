@@ -8,6 +8,9 @@ import type {
   PaginatedResponse,
   MessageFilters,
   User,
+  Complaint,
+  ComplaintFilters,
+  ComplaintPaginatedResponse,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -100,6 +103,83 @@ export const dashboardApi = {
     const response = await api.get<ApiResponse<MessageStats>>('/dashboard/stats', {
       params: { period },
     });
+    return response.data;
+  },
+};
+
+// Complaints API
+export const complaintsApi = {
+  getComplaints: async (
+    filters: ComplaintFilters
+  ): Promise<ApiResponse<ComplaintPaginatedResponse>> => {
+    const response = await api.get<ApiResponse<ComplaintPaginatedResponse>>(
+      '/complaints',
+      { params: filters }
+    );
+    return response.data;
+  },
+
+  getComplaint: async (id: string): Promise<ApiResponse<Complaint>> => {
+    const response = await api.get<ApiResponse<Complaint>>(`/complaints/${id}`);
+    return response.data;
+  },
+
+  updateStatus: async (
+    id: string,
+    status: Complaint['status']
+  ): Promise<ApiResponse<Complaint>> => {
+    const response = await api.patch<ApiResponse<Complaint>>(
+      `/complaints/${id}/status`,
+      { status }
+    );
+    return response.data;
+  },
+
+  assign: async (id: string, assignedTo: string): Promise<ApiResponse<Complaint>> => {
+    const response = await api.post<ApiResponse<Complaint>>(
+      `/complaints/${id}/assign`,
+      { assignedTo }
+    );
+    return response.data;
+  },
+
+  addNotes: async (id: string, notes: string): Promise<ApiResponse<Complaint>> => {
+    const response = await api.post<ApiResponse<Complaint>>(
+      `/complaints/${id}/notes`,
+      { notes }
+    );
+    return response.data;
+  },
+
+  escalate: async (id: string): Promise<ApiResponse<{ complaint: Complaint; ticket: unknown }>> => {
+    const response = await api.post<ApiResponse<{ complaint: Complaint; ticket: unknown }>>(
+      `/complaints/${id}/escalate`
+    );
+    return response.data;
+  },
+
+  resolve: async (id: string, resolution?: string): Promise<ApiResponse<Complaint>> => {
+    const response = await api.post<ApiResponse<Complaint>>(
+      `/complaints/${id}/resolve`,
+      { resolution }
+    );
+    return response.data;
+  },
+
+  getStats: async (): Promise<ApiResponse<{
+    total: number;
+    byStatus: Record<string, number>;
+    byPriority: Record<string, number>;
+    byType: Record<string, number>;
+    avgResolutionTimeHours: number;
+  }>> => {
+    const response = await api.get<ApiResponse<{
+      total: number;
+      byStatus: Record<string, number>;
+      byPriority: Record<string, number>;
+      byType: Record<string, number>;
+      avgResolutionTimeHours: number;
+    }>>('/complaints/stats');
     return response.data;
   },
 };

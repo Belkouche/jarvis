@@ -98,15 +98,40 @@ export interface Complaint {
   contractorName: string | null;
   contractNumber: string;
   complaintType: string;
-  message: string | null;
+  description: string | null;
   status: 'open' | 'assigned' | 'escalated' | 'resolved';
   priority: 'low' | 'medium' | 'high';
   assignedTo: string | null;
+  assignedToUser?: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
   escalatedToOrange: boolean;
   orangeTicketId: string | null;
   notes: string | null;
+  messageId: string | null;
+  tickets?: Ticket[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Ticket {
+  id: string;
+  orangeTicketId: string | null;
+  status: string;
+  priority: string;
+  createdAt: string;
+}
+
+export interface ComplaintPaginatedResponse {
+  complaints: Complaint[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 // Filter types
@@ -120,4 +145,14 @@ export interface MessageFilters {
   isComplaint?: boolean;
   dateFrom?: string;
   dateTo?: string;
+}
+
+export interface ComplaintFilters {
+  page?: number;
+  limit?: number;
+  status?: 'open' | 'assigned' | 'escalated' | 'resolved';
+  priority?: 'low' | 'medium' | 'high';
+  assignedTo?: string | null;
+  phone?: string;
+  contractNumber?: string;
 }

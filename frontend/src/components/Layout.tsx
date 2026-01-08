@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, AlertTriangle, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { authApi } from '../services/api';
@@ -21,6 +21,7 @@ export default function Layout() {
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Tableau de bord' },
     { to: '/messages', icon: MessageSquare, label: 'Messages' },
+    { to: '/complaints', icon: AlertTriangle, label: 'Réclamations' },
   ];
 
   return (
