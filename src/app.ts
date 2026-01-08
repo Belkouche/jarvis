@@ -12,8 +12,10 @@ import { connectRedis, disconnectRedis } from './config/redis.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/logging.js';
 import { globalRateLimiter } from './middleware/rateLimit.js';
+import cookieParser from 'cookie-parser';
 import healthRoutes from './routes/health.js';
 import webhookRoutes from './routes/webhook.js';
+import authRoutes from './routes/auth.js';
 import dashboardRoutes from './routes/dashboard.js';
 
 const app = express();
@@ -38,6 +40,7 @@ app.use(
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
 
 // Request logging
 app.use(requestLogger);
@@ -50,8 +53,8 @@ app.use('/', healthRoutes);
 
 // API routes
 app.use('/api/webhook', webhookRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-// app.use('/api/auth', authRoutes);  // Week 4
 // app.use('/api/complaints', complaintRoutes);  // Week 5
 // app.use('/api/tickets', ticketRoutes);  // Week 5
 
