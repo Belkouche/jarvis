@@ -7,14 +7,15 @@ import type { ApiResponse } from '../types/index.js';
 const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);
 const maxRequests = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10', 10);
 
-// Rate limiter for webhook endpoints (per phone number)
+// SECURITY: Rate limiter for webhook endpoints - use IP as PRIMARY key to prevent bypass
+// Secondary phone-based limiting is applied at the application level
 export const webhookRateLimiter = rateLimit({
   windowMs,
   max: maxRequests,
   keyGenerator: (req: Request): string => {
-    // Use phone number as the key for webhook rate limiting
-    const phone = req.body?.phone || req.ip || 'unknown';
-    return `webhook_${phone}`;
+    // SECURITY: Use IP address as the primary rate limit key
+    // This prevents bypass via phone number spoofing in request body
+    return `webhook_${req.ip || 'unknown'}`;
   },
   handler: (req: Request, res: Response<ApiResponse>) => {
     logger.warn('Rate limit exceeded for webhook', {
@@ -50,13 +51,15 @@ export const apiRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Rate limiter for magic link requests (max 5 per email per 24 hours)
+// SECURITY: Rate limiter for magic link requests (max 5 per IP per 24 hours)
+// Limits by IP to prevent email enumeration via body manipulation
 export const magicLinkRateLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
   max: 5,
   keyGenerator: (req: Request): string => {
-    const email = req.body?.email || req.ip || 'unknown';
-    return `magic_link_${email}`;
+    // SECURITY: Use IP as primary key, log email for audit purposes
+    // This prevents bypass via email spoofing in request body
+    return `magic_link_${req.ip || 'unknown'}`;
   },
   handler: (req: Request, res: Response<ApiResponse>) => {
     logger.warn('Magic link rate limit exceeded', {

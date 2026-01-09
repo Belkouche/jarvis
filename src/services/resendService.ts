@@ -1,12 +1,17 @@
 import { Resend } from 'resend';
 import { logger } from '../config/logger.js';
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@tktm.ma';
 const DASHBOARD_URL = process.env.DASHBOARD_URL || 'http://localhost:3001';
 
-// Initialize Resend client
-const resend = new Resend(RESEND_API_KEY);
+// SECURITY: Warn if Resend API key is not configured
+if (!RESEND_API_KEY) {
+  console.warn('WARNING: RESEND_API_KEY not configured - email functionality will fail');
+}
+
+// Initialize Resend client (with empty string fallback to prevent crash, but will fail on use)
+const resend = new Resend(RESEND_API_KEY || '');
 
 /**
  * Generate HTML template for magic link email
@@ -181,7 +186,7 @@ export async function sendAdminNotification(
 export async function checkResendHealth(): Promise<boolean> {
   try {
     // Resend doesn't have a health endpoint, so we just check if API key is configured
-    return RESEND_API_KEY.length > 0;
+    return !!RESEND_API_KEY && RESEND_API_KEY.length > 0;
   } catch {
     return false;
   }

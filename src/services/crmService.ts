@@ -5,9 +5,29 @@ import { withTimeout, retry } from '../utils/helpers.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { CRMStatus } from '../types/index.js';
 
+// SECURITY: Validate D2D Portal configuration at startup
 const D2D_PORTAL_URL = process.env.D2D_PORTAL_URL || 'https://d2d.orange.ma';
-const D2D_USERNAME = process.env.D2D_USERNAME || '';
-const D2D_PASSWORD = process.env.D2D_PASSWORD || '';
+const D2D_USERNAME = process.env.D2D_USERNAME;
+const D2D_PASSWORD = process.env.D2D_PASSWORD;
+
+// Validate D2D credentials are configured (will be checked when CRM is used)
+function validateD2DCredentials(): void {
+  if (!D2D_USERNAME || !D2D_PASSWORD) {
+    throw new Error('D2D_USERNAME and D2D_PASSWORD environment variables must be configured');
+  }
+}
+
+// SECURITY: Validate D2D Portal URL against whitelist
+const ALLOWED_D2D_HOSTS = ['d2d.orange.ma', 'd2d-staging.orange.ma', 'd2d-test.orange.ma'];
+try {
+  const d2dUrl = new URL(D2D_PORTAL_URL);
+  if (!ALLOWED_D2D_HOSTS.includes(d2dUrl.hostname)) {
+    throw new Error(`Invalid D2D_PORTAL_URL hostname. Allowed: ${ALLOWED_D2D_HOSTS.join(', ')}`);
+  }
+} catch (e) {
+  if ((e as Error).message.includes('Invalid D2D_PORTAL_URL')) throw e;
+  throw new Error('D2D_PORTAL_URL must be a valid URL');
+}
 const CRM_TIMEOUT = 50000; // 50 seconds as per PRD
 const CACHE_TTL = parseInt(process.env.CACHE_TTL_CRM || '300', 10); // 5 minutes
 
@@ -20,17 +40,30 @@ let browserContext: BrowserContext | null = null;
  */
 async function getBrowser(): Promise<Browser> {
   if (!browser || !browser.isConnected()) {
+    // SECURITY: Enable sandbox when running as root in Docker
+    // The sandbox can be enabled if the container has appropriate capabilities
+    // or is not running as root
+    const isRunningAsRoot = process.getuid && process.getuid() === 0;
+    const enableSandbox = process.env.PLAYWRIGHT_SANDBOX !== 'false';
+
+    const args = [
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--disable-gpu',
+    ];
+
+    // SECURITY: Only disable sandbox if explicitly configured and running as root
+    // Prefer running container as non-root user to enable sandbox
+    if (isRunningAsRoot && !enableSandbox) {
+      logger.warn('SECURITY: Playwright running without sandbox - consider running as non-root user');
+      args.push('--no-sandbox', '--disable-setuid-sandbox');
+    }
+
     browser = await chromium.launch({
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-      ],
+      args,
     });
-    logger.info('Browser instance created');
+    logger.info('Browser instance created', { sandboxEnabled: !(isRunningAsRoot && !enableSandbox) });
   }
   return browser;
 }
@@ -61,6 +94,9 @@ async function getAuthenticatedContext(): Promise<BrowserContext> {
  * Perform login to D2D Portal
  */
 async function performLogin(context: BrowserContext): Promise<void> {
+  // SECURITY: Validate credentials before attempting login
+  validateD2DCredentials();
+
   const page = await context.newPage();
 
   try {

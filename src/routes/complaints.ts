@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
+import { validate, schemas } from '../middleware/validation';
 import * as complaintController from '../controllers/complaintController';
 
 const router = Router();
@@ -21,11 +22,22 @@ router.get(
   complaintController.getNeedingEscalation
 );
 
+// SECURITY: All complaint access requires admin/bo_team role to prevent IDOR
 // Get all complaints with filters
-router.get('/', complaintController.getComplaints);
+router.get(
+  '/',
+  requireRole(['admin', 'bo_team']),
+  complaintController.getComplaints
+);
 
-// Get single complaint
-router.get('/:id', complaintController.getComplaint);
+// SECURITY: Add UUID validation to prevent injection
+// Get single complaint (admin/bo_team only)
+router.get(
+  '/:id',
+  requireRole(['admin', 'bo_team']),
+  validate(schemas.uuidParam, 'params'),
+  complaintController.getComplaint
+);
 
 // Update complaint status (admin/bo_team only)
 router.patch(

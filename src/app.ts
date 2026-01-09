@@ -31,10 +31,37 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// SECURITY: CORS configuration with explicit origin validation
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.DASHBOARD_URL || 'http://localhost:3001')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+// Validate origins at startup
+ALLOWED_ORIGINS.forEach((origin) => {
+  try {
+    new URL(origin);
+  } catch {
+    throw new Error(`Invalid CORS origin URL: ${origin}`);
+  }
+});
+
 app.use(
   cors({
-    origin: process.env.DASHBOARD_URL || 'http://localhost:3001',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      // Check if origin is in allowed list
+      if (ALLOWED_ORIGINS.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn('CORS: Blocked request from unauthorized origin', { origin });
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],

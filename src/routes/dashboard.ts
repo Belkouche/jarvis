@@ -65,9 +65,22 @@ router.get(
         });
 
         if (format === 'csv') {
+          // SECURITY: Sanitize CSV values to prevent formula injection
+          // Prefix dangerous characters with single quote to neutralize formulas
+          const sanitizeCsvValue = (value: string | null | undefined): string => {
+            const str = String(value ?? '');
+            // Escape quotes first
+            const escaped = str.replace(/"/g, '""');
+            // Prefix with single quote if starts with dangerous characters
+            if (/^[=+\-@\t\r]/.test(escaped)) {
+              return `'${escaped}`;
+            }
+            return escaped;
+          };
+
           const csvHeader = 'ID,Phone,Contractor,Contract Number,Type,Status,Priority,Assigned To,Escalated,Notes,Created At\n';
           const csvRows = complaints.map(c =>
-            `"${c.id}","${c.phone}","${c.contractorName || ''}","${c.contractNumber}","${c.complaintType}","${c.status}","${c.priority}","${c.assignedToUser?.name || c.assignedToUser?.email || ''}","${c.escalatedToOrange}","${(c.notes || '').replace(/"/g, '""')}","${c.createdAt.toISOString()}"`
+            `"${sanitizeCsvValue(c.id)}","${sanitizeCsvValue(c.phone)}","${sanitizeCsvValue(c.contractorName)}","${sanitizeCsvValue(c.contractNumber)}","${sanitizeCsvValue(c.complaintType)}","${sanitizeCsvValue(c.status)}","${sanitizeCsvValue(c.priority)}","${sanitizeCsvValue(c.assignedToUser?.name || c.assignedToUser?.email)}","${c.escalatedToOrange}","${sanitizeCsvValue(c.notes)}","${c.createdAt.toISOString()}"`
           ).join('\n');
 
           res.setHeader('Content-Type', 'text/csv');
@@ -85,9 +98,19 @@ router.get(
         });
 
         if (format === 'csv') {
+          // SECURITY: Sanitize CSV values to prevent formula injection
+          const sanitizeCsvValue = (value: string | number | null | undefined): string => {
+            const str = String(value ?? '');
+            const escaped = str.replace(/"/g, '""');
+            if (/^[=+\-@\t\r]/.test(escaped)) {
+              return `'${escaped}`;
+            }
+            return escaped;
+          };
+
           const csvHeader = 'ID,Phone,Contractor,Message,Language,Intent,Contract Number,Valid Format,Spam,LM Latency,CRM Latency,Total Latency,Has Complaint,Complaint Type,Error,Created At\n';
           const csvRows = messages.map(m =>
-            `"${m.id}","${m.phone}","${m.contractorName || ''}","${(m.incomingMessage || '').replace(/"/g, '""')}","${m.languageDetected || ''}","${m.intent || ''}","${m.contractNumber || ''}","${m.isValidFormat}","${m.isSpam}","${m.lmStudioLatency || ''}","${m.crmLookupLatency || ''}","${m.totalLatency || ''}","${m.hasComplaint}","${m.complaintType || ''}","${m.errorCode || ''}","${m.createdAt.toISOString()}"`
+            `"${sanitizeCsvValue(m.id)}","${sanitizeCsvValue(m.phone)}","${sanitizeCsvValue(m.contractorName)}","${sanitizeCsvValue(m.incomingMessage)}","${sanitizeCsvValue(m.languageDetected)}","${sanitizeCsvValue(m.intent)}","${sanitizeCsvValue(m.contractNumber)}","${m.isValidFormat}","${m.isSpam}","${sanitizeCsvValue(m.lmStudioLatency)}","${sanitizeCsvValue(m.crmLookupLatency)}","${sanitizeCsvValue(m.totalLatency)}","${m.hasComplaint}","${sanitizeCsvValue(m.complaintType)}","${sanitizeCsvValue(m.errorCode)}","${m.createdAt.toISOString()}"`
           ).join('\n');
 
           res.setHeader('Content-Type', 'text/csv');
