@@ -24,21 +24,15 @@ const api = axios.create({
   },
 });
 
-// Add auth token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// SECURITY: Removed localStorage token handling - auth is via httpOnly cookies only
+// The withCredentials: true setting ensures cookies are sent with requests
 
 // Handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiResponse>) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
+      // Redirect to login on authentication failure
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -53,18 +47,16 @@ export const authApi = {
   },
 
   verifyMagicLink: async (token: string): Promise<ApiResponse<AuthResponse>> => {
+    // SECURITY: Backend sets httpOnly cookie, no localStorage handling needed
     const response = await api.get<ApiResponse<AuthResponse>>('/auth/magic-link/verify', {
       params: { token },
     });
-    if (response.data.data?.token) {
-      localStorage.setItem('token', response.data.data.token);
-    }
     return response.data;
   },
 
   logout: async (): Promise<ApiResponse> => {
+    // SECURITY: Backend clears httpOnly cookie
     const response = await api.post<ApiResponse>('/auth/logout');
-    localStorage.removeItem('token');
     return response.data;
   },
 
@@ -74,10 +66,8 @@ export const authApi = {
   },
 
   refreshToken: async (): Promise<ApiResponse<{ token: string; expiresAt: string }>> => {
+    // SECURITY: Backend updates httpOnly cookie, no localStorage handling needed
     const response = await api.post<ApiResponse<{ token: string; expiresAt: string }>>('/auth/refresh');
-    if (response.data.data?.token) {
-      localStorage.setItem('token', response.data.data.token);
-    }
     return response.data;
   },
 };

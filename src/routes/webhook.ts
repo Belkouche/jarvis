@@ -15,12 +15,8 @@ function verifySignature(req: Request, res: Response, next: NextFunction): void 
   const signature = req.headers['x-webhook-signature'] as string || '';
   const rawBody = JSON.stringify(req.body);
 
-  // Skip verification in development if no secret configured
-  if (process.env.NODE_ENV === 'development' && !process.env.EVOLUTION_WEBHOOK_SECRET) {
-    logger.warn('Webhook signature verification skipped in development');
-    next();
-    return;
-  }
+  // SECURITY: Always verify webhook signatures - no development bypass
+  // The verifyWebhookSignature function will reject if secret is not configured (fail-closed)
 
   if (!verifyWebhookSignature(rawBody, signature)) {
     logger.warn('Invalid webhook signature', {

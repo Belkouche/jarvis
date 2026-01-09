@@ -3,6 +3,8 @@ import { prisma } from '../config/database.js';
 import { getRedisClient } from '../config/redis.js';
 import type { ApiResponse } from '../types/index.js';
 import * as metricsService from '../services/metricsService.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
+import { logger } from '../config/logger.js';
 
 const router = Router();
 
@@ -96,8 +98,38 @@ router.get('/live', (_req: Request, res: Response<ApiResponse<{ live: boolean }>
   });
 });
 
-// Metrics endpoint for monitoring
-router.get('/health/metrics', async (_req: Request, res: Response) => {
+// SECURITY: Check if metrics authentication is required
+const METRICS_AUTH_REQUIRED = process.env.METRICS_AUTH_REQUIRED !== 'false';
+const METRICS_API_KEY = process.env.METRICS_API_KEY;
+
+// Middleware to protect metrics endpoints
+const metricsAuth = (req: Request, res: Response, next: Function) => {
+  // Skip auth if disabled (for internal/trusted networks)
+  if (!METRICS_AUTH_REQUIRED) {
+    return next();
+  }
+
+  // Check for API key in header
+  const apiKey = req.headers['x-metrics-api-key'];
+  if (METRICS_API_KEY && apiKey === METRICS_API_KEY) {
+    return next();
+  }
+
+  // Fall back to JWT authentication for admin users
+  authenticate(req, res, (err?: Error) => {
+    if (err) {
+      logger.warn('SECURITY: Unauthorized metrics access attempt', {
+        ip: req.ip,
+        path: req.path,
+      });
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    requireRole('admin')(req, res, next);
+  });
+};
+
+// Metrics endpoint for monitoring (protected)
+router.get('/health/metrics', metricsAuth, async (_req: Request, res: Response) => {
   try {
     const metrics = await metricsService.getAllMetrics();
     res.json({
@@ -112,8 +144,8 @@ router.get('/health/metrics', async (_req: Request, res: Response) => {
   }
 });
 
-// Prometheus-compatible metrics endpoint
-router.get('/metrics', async (_req: Request, res: Response) => {
+// Prometheus-compatible metrics endpoint (protected)
+router.get('/metrics', metricsAuth, async (_req: Request, res: Response) => {
   try {
     const metrics = await metricsService.getPrometheusMetrics();
     res.set('Content-Type', 'text/plain');

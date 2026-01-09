@@ -4,10 +4,54 @@ import jwt from 'jsonwebtoken';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
 
+// SECURITY: WebSocket rate limiting configuration
+const WS_RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const WS_RATE_LIMIT_MAX_EVENTS = 100; // Max events per window
+const WS_RATE_LIMIT_MAX_CONNECTIONS_PER_IP = 10; // Max connections per IP
+
+// Track rate limits per socket and connections per IP
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const connectionsPerIp = new Map<string, number>();
+
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   userEmail?: string;
   userRole?: string;
+}
+
+// SECURITY: Check rate limit for a socket
+function checkRateLimit(socketId: string): boolean {
+  const now = Date.now();
+  const limit = rateLimitMap.get(socketId);
+
+  if (!limit || now > limit.resetTime) {
+    rateLimitMap.set(socketId, { count: 1, resetTime: now + WS_RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+
+  if (limit.count >= WS_RATE_LIMIT_MAX_EVENTS) {
+    return false;
+  }
+
+  limit.count++;
+  return true;
+}
+
+// SECURITY: Track connection limits per IP
+function trackConnection(ip: string): boolean {
+  const current = connectionsPerIp.get(ip) || 0;
+  if (current >= WS_RATE_LIMIT_MAX_CONNECTIONS_PER_IP) {
+    return false;
+  }
+  connectionsPerIp.set(ip, current + 1);
+  return true;
+}
+
+function untrackConnection(ip: string): void {
+  const current = connectionsPerIp.get(ip) || 0;
+  if (current > 0) {
+    connectionsPerIp.set(ip, current - 1);
+  }
 }
 
 interface NotificationPayload {
@@ -32,11 +76,24 @@ export function initWebSocket(server: HttpServer): Server {
     path: '/ws',
   });
 
+  // SECURITY: Connection rate limiting middleware
+  io.use((socket: AuthenticatedSocket, next) => {
+    const ip = socket.handshake.address || 'unknown';
+    if (!trackConnection(ip)) {
+      logger.warn('WebSocket connection limit exceeded', { ip });
+      return next(new Error('Too many connections from this IP'));
+    }
+    next();
+  });
+
   // Authentication middleware
   io.use((socket: AuthenticatedSocket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {
+      // Untrack connection on auth failure
+      const ip = socket.handshake.address || 'unknown';
+      untrackConnection(ip);
       return next(new Error('Authentication required'));
     }
 
@@ -52,6 +109,9 @@ export function initWebSocket(server: HttpServer): Server {
       socket.userRole = decoded.role;
       next();
     } catch {
+      // Untrack connection on auth failure
+      const ip = socket.handshake.address || 'unknown';
+      untrackConnection(ip);
       next(new Error('Invalid token'));
     }
   });
@@ -77,6 +137,11 @@ export function initWebSocket(server: HttpServer): Server {
     socket.join('authenticated');
 
     socket.on('disconnect', () => {
+      // SECURITY: Clean up rate limit tracking and connection count
+      rateLimitMap.delete(socket.id);
+      const ip = socket.handshake.address || 'unknown';
+      untrackConnection(ip);
+
       logger.info('WebSocket client disconnected', {
         socketId: socket.id,
         userId: socket.userId,
@@ -84,15 +149,52 @@ export function initWebSocket(server: HttpServer): Server {
     });
 
     // Handle client subscribing to specific complaint
+    // SECURITY: Only allow admin/bo_team roles to subscribe to complaints
     socket.on('subscribe:complaint', (complaintId: string) => {
+      // SECURITY: Check rate limit before processing event
+      if (!checkRateLimit(socket.id)) {
+        logger.warn('WebSocket rate limit exceeded', {
+          socketId: socket.id,
+          userId: socket.userId,
+        });
+        socket.emit('error', { message: 'Rate limit exceeded' });
+        return;
+      }
+
+      // Validate complaintId format (UUID)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!complaintId || !uuidRegex.test(complaintId)) {
+        socket.emit('error', { message: 'Invalid complaint ID format' });
+        return;
+      }
+
+      // Check if user has permission to subscribe to complaint updates
+      const allowedRoles = ['admin', 'bo_team'];
+      if (!socket.userRole || !allowedRoles.includes(socket.userRole)) {
+        logger.warn('Unauthorized complaint subscription attempt', {
+          socketId: socket.id,
+          userId: socket.userId,
+          userRole: socket.userRole,
+          complaintId,
+        });
+        socket.emit('error', { message: 'Unauthorized - insufficient role to subscribe to complaints' });
+        return;
+      }
+
       socket.join(`complaint:${complaintId}`);
       logger.debug('Client subscribed to complaint', {
         socketId: socket.id,
+        userId: socket.userId,
         complaintId,
       });
     });
 
     socket.on('unsubscribe:complaint', (complaintId: string) => {
+      // SECURITY: Check rate limit before processing event
+      if (!checkRateLimit(socket.id)) {
+        socket.emit('error', { message: 'Rate limit exceeded' });
+        return;
+      }
       socket.leave(`complaint:${complaintId}`);
     });
   });

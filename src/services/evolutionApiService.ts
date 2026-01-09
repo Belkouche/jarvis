@@ -5,8 +5,13 @@ import { retry } from '../utils/helpers.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'https://evo.aslan.ma';
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || '';
-const EVOLUTION_WEBHOOK_SECRET = process.env.EVOLUTION_WEBHOOK_SECRET || '';
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
+const EVOLUTION_WEBHOOK_SECRET = process.env.EVOLUTION_WEBHOOK_SECRET;
+
+// SECURITY: Validate Evolution API configuration
+if (!EVOLUTION_API_KEY) {
+  console.warn('WARNING: EVOLUTION_API_KEY not configured - WhatsApp messaging will fail');
+}
 
 // Evolution API response types
 interface EvolutionSendResponse {
@@ -52,9 +57,10 @@ export function verifyWebhookSignature(
   payload: string,
   signature: string
 ): boolean {
+  // SECURITY: Fail-closed - reject webhooks if secret not configured
   if (!EVOLUTION_WEBHOOK_SECRET) {
-    logger.warn('Webhook secret not configured, skipping verification');
-    return true;
+    logger.error('SECURITY: Webhook secret not configured - rejecting request');
+    return false;
   }
 
   const expectedSignature = crypto

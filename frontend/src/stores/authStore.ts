@@ -1,55 +1,34 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { User } from '../types';
+
+// SECURITY: Removed localStorage token storage - relies on httpOnly cookies only
+// This prevents XSS attacks from stealing authentication tokens
 
 interface AuthState {
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   setUser: (user: User | null) => void;
-  setToken: (token: string | null) => void;
-  login: (user: User, token: string) => void;
+  login: (user: User) => void;
   logout: () => void;
   setLoading: (loading: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isLoading: true,
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
 
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
+  setUser: (user) => set({ user, isAuthenticated: !!user }),
 
-      setToken: (token) => {
-        if (token) {
-          localStorage.setItem('token', token);
-        } else {
-          localStorage.removeItem('token');
-        }
-        set({ token });
-      },
+  // SECURITY: Token is now managed by httpOnly cookies set by backend
+  login: (user) => {
+    set({ user, isAuthenticated: true, isLoading: false });
+  },
 
-      login: (user, token) => {
-        localStorage.setItem('token', token);
-        set({ user, token, isAuthenticated: true, isLoading: false });
-      },
+  logout: () => {
+    set({ user: null, isAuthenticated: false });
+  },
 
-      logout: () => {
-        localStorage.removeItem('token');
-        set({ user: null, token: null, isAuthenticated: false });
-      },
-
-      setLoading: (isLoading) => set({ isLoading }),
-    }),
-    {
-      name: 'jarvis-auth',
-      partialize: (state) => ({
-        token: state.token,
-      }),
-    }
-  )
-);
+  setLoading: (isLoading) => set({ isLoading }),
+}));

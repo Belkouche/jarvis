@@ -1,7 +1,20 @@
 import axios, { AxiosError } from 'axios';
+import { z } from 'zod';
 import { logger, log } from '../config/logger.js';
 import { withTimeout } from '../utils/helpers.js';
 import type { LMAnalysisResult, LanguageCode, MessageIntent } from '../types/index.js';
+
+// SECURITY: Zod schema for validating LM Studio responses
+const LMResponseSchema = z.object({
+  language: z.string().optional(),
+  intent: z.string().optional(),
+  contract_number: z.string().nullable().optional(),
+  is_valid_format: z.boolean().optional(),
+  is_spam: z.boolean().optional(),
+  confidence: z.number().min(0).max(1).optional(),
+});
+
+type LMParsedResponse = z.infer<typeof LMResponseSchema>;
 
 const LM_STUDIO_URL = process.env.LM_STUDIO_URL || 'http://localhost:5000';
 const LM_STUDIO_TIMEOUT = parseInt(process.env.LM_STUDIO_TIMEOUT || '10000', 10);
@@ -81,7 +94,7 @@ async function callLMStudio(message: string): Promise<LMAnalysisResult> {
 }
 
 /**
- * Parse JSON response from LM Studio
+ * Parse JSON response from LM Studio with Zod validation
  */
 function parseAnalysisResponse(responseText: string): LMAnalysisResult {
   // Try to extract JSON from the response
@@ -90,7 +103,23 @@ function parseAnalysisResponse(responseText: string): LMAnalysisResult {
     throw new Error('No JSON found in LM Studio response');
   }
 
-  const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  let rawParsed: unknown;
+  try {
+    rawParsed = JSON.parse(jsonMatch[0]);
+  } catch (e) {
+    throw new Error('Invalid JSON in LM Studio response');
+  }
+
+  // SECURITY: Validate response structure with Zod to prevent injection attacks
+  const parseResult = LMResponseSchema.safeParse(rawParsed);
+  if (!parseResult.success) {
+    logger.warn('LM Studio response failed schema validation', {
+      errors: parseResult.error.errors.map((e) => e.message),
+    });
+    throw new Error('LM Studio response failed schema validation');
+  }
+
+  const parsed: LMParsedResponse = parseResult.data;
 
   // Validate and normalize the response
   return {

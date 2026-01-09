@@ -1,4 +1,5 @@
 import winston from 'winston';
+import { maskPhone, maskEmail, maskContractNumber, maskIp } from '../utils/helpers.js';
 
 const logLevel = process.env.LOG_LEVEL || 'info';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -64,56 +65,78 @@ export const log = {
   error: (message: string, meta?: Record<string, unknown>) => logger.error(message, meta),
   debug: (message: string, meta?: Record<string, unknown>) => logger.debug(message, meta),
 
-  // Domain-specific logging
+  // SECURITY: Domain-specific logging with PII masking for GDPR compliance
   message: {
     received: (phone: string, messageId: string) =>
-      logger.info('Message received', { phone, messageId }),
+      logger.info('Message received', { phone: maskPhone(phone), messageId }),
     processed: (phone: string, latency: number, success: boolean) =>
-      logger.info('Message processed', { phone, latency, success }),
+      logger.info('Message processed', { phone: maskPhone(phone), latency, success }),
     error: (phone: string, error: string) =>
-      logger.error('Message processing error', { phone, error }),
+      logger.error('Message processing error', { phone: maskPhone(phone), error }),
   },
 
   lmStudio: {
     request: (contractNumber: string) =>
-      logger.debug('LM Studio request', { contractNumber }),
+      logger.debug('LM Studio request', { contractNumber: maskContractNumber(contractNumber) }),
     response: (contractNumber: string, latency: number) =>
-      logger.info('LM Studio response', { contractNumber, latency }),
+      logger.info('LM Studio response', { contractNumber: maskContractNumber(contractNumber), latency }),
     timeout: (contractNumber: string) =>
-      logger.warn('LM Studio timeout, using fallback', { contractNumber }),
+      logger.warn('LM Studio timeout, using fallback', { contractNumber: maskContractNumber(contractNumber) }),
     error: (error: string) => logger.error('LM Studio error', { error }),
   },
 
   crm: {
     lookup: (contractNumber: string) =>
-      logger.debug('CRM lookup started', { contractNumber }),
+      logger.debug('CRM lookup started', { contractNumber: maskContractNumber(contractNumber) }),
     found: (contractNumber: string, latency: number) =>
-      logger.info('CRM lookup success', { contractNumber, latency }),
+      logger.info('CRM lookup success', { contractNumber: maskContractNumber(contractNumber), latency }),
     notFound: (contractNumber: string) =>
-      logger.warn('Contract not found in CRM', { contractNumber }),
+      logger.warn('Contract not found in CRM', { contractNumber: maskContractNumber(contractNumber) }),
     cacheHit: (contractNumber: string) =>
-      logger.debug('CRM cache hit', { contractNumber }),
+      logger.debug('CRM cache hit', { contractNumber: maskContractNumber(contractNumber) }),
     error: (contractNumber: string, error: string) =>
-      logger.error('CRM lookup error', { contractNumber, error }),
+      logger.error('CRM lookup error', { contractNumber: maskContractNumber(contractNumber), error }),
   },
 
   auth: {
     magicLinkSent: (email: string) =>
-      logger.info('Magic link sent', { email }),
+      logger.info('Magic link sent', { email: maskEmail(email) }),
     magicLinkUsed: (email: string) =>
-      logger.info('Magic link used', { email }),
+      logger.info('Magic link used', { email: maskEmail(email) }),
     loginSuccess: (email: string) =>
-      logger.info('Login successful', { email }),
+      logger.info('Login successful', { email: maskEmail(email) }),
     loginFailed: (email: string, reason: string) =>
-      logger.warn('Login failed', { email, reason }),
-    logout: (email: string) => logger.info('User logged out', { email }),
+      logger.warn('Login failed', { email: maskEmail(email), reason }),
+    logout: (email: string) => logger.info('User logged out', { email: maskEmail(email) }),
   },
 
   complaint: {
     created: (id: string, contractNumber: string) =>
-      logger.info('Complaint created', { id, contractNumber }),
+      logger.info('Complaint created', { id, contractNumber: maskContractNumber(contractNumber) }),
     escalated: (id: string, orangeTicketId: string) =>
       logger.info('Complaint escalated to Orange', { id, orangeTicketId }),
     resolved: (id: string) => logger.info('Complaint resolved', { id }),
+  },
+
+  // SECURITY: Security-specific audit logging
+  security: {
+    authFailed: (email: string, reason: string, ip?: string) =>
+      logger.warn('SECURITY: Authentication failed', {
+        email: maskEmail(email),
+        reason,
+        ip: maskIp(ip),
+      }),
+    rateLimitExceeded: (identifier: string, endpoint: string, ip?: string) =>
+      logger.warn('SECURITY: Rate limit exceeded', {
+        identifier,
+        endpoint,
+        ip: maskIp(ip),
+      }),
+    unauthorizedAccess: (userId: string, resource: string, action: string) =>
+      logger.warn('SECURITY: Unauthorized access attempt', { userId, resource, action }),
+    suspiciousActivity: (userId: string, activity: string, details?: Record<string, unknown>) =>
+      logger.warn('SECURITY: Suspicious activity detected', { userId, activity, ...details }),
+    roleChange: (adminId: string, targetUserId: string, oldRole: string, newRole: string) =>
+      logger.info('SECURITY: User role changed', { adminId, targetUserId, oldRole, newRole }),
   },
 };

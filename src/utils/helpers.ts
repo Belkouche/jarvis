@@ -152,6 +152,68 @@ export function sanitizeForLog(obj: Record<string, unknown>): Record<string, unk
   return sanitized;
 }
 
+// SECURITY: PII masking utilities for GDPR compliance and safe logging
+
+/**
+ * Mask phone number for logging - shows only last 4 digits
+ * Example: +212612345678 -> ********5678
+ */
+export function maskPhone(phone: string | null | undefined): string {
+  if (!phone || phone.length <= 4) return '****';
+  return '*'.repeat(phone.length - 4) + phone.slice(-4);
+}
+
+/**
+ * Mask email for logging - shows first char and domain
+ * Example: user@example.com -> u***@example.com
+ */
+export function maskEmail(email: string | null | undefined): string {
+  if (!email) return '****';
+  const [local, domain] = email.split('@');
+  if (!domain) return '****';
+  return `${local.charAt(0)}***@${domain}`;
+}
+
+/**
+ * Mask contract number - shows first 2 and last 2 characters
+ * Example: F0823846D -> F0****6D
+ */
+export function maskContractNumber(contractNumber: string | null | undefined): string {
+  if (!contractNumber || contractNumber.length <= 4) return '****';
+  return contractNumber.slice(0, 2) + '****' + contractNumber.slice(-2);
+}
+
+/**
+ * Mask name for logging - shows first initial only
+ * Example: John Doe -> J***
+ */
+export function maskName(name: string | null | undefined): string {
+  if (!name || name.length === 0) return '****';
+  return name.charAt(0) + '***';
+}
+
+/**
+ * Generic IP address masking - masks last octet
+ * Example: 192.168.1.100 -> 192.168.1.xxx
+ */
+export function maskIp(ip: string | null | undefined): string {
+  if (!ip) return '****';
+  // Handle IPv4
+  if (ip.includes('.')) {
+    const parts = ip.split('.');
+    if (parts.length === 4) {
+      return parts.slice(0, 3).join('.') + '.xxx';
+    }
+  }
+  // Handle IPv6 - mask last segment
+  if (ip.includes(':')) {
+    const parts = ip.split(':');
+    parts[parts.length - 1] = 'xxxx';
+    return parts.join(':');
+  }
+  return '****';
+}
+
 /**
  * Generate Orange ticket ID
  */

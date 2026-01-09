@@ -114,6 +114,27 @@ function formatZodError(error: ZodError): string {
     .join(', ');
 }
 
+// SECURITY: Sanitize request body before logging to prevent credential exposure
+function sanitizeBodyForLog(body: unknown): unknown {
+  if (!body || typeof body !== 'object') return body;
+
+  const sensitiveKeys = ['password', 'token', 'secret', 'apikey', 'api_key', 'authorization', 'credential', 'private'];
+  const sanitized: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+    const lowerKey = key.toLowerCase();
+    if (sensitiveKeys.some(sensitive => lowerKey.includes(sensitive))) {
+      sanitized[key] = '[REDACTED]';
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[key] = sanitizeBodyForLog(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+
+  return sanitized;
+}
+
 // Global error handler middleware
 export function errorHandler(
   err: Error,
@@ -121,13 +142,14 @@ export function errorHandler(
   res: Response<ApiResponse>,
   _next: NextFunction
 ): void {
-  // Log the error
+  // SECURITY: Log error with sanitized body to prevent credential leakage
+  // Only include stack traces in development
   logger.error('Error occurred', {
     error: err.message,
-    stack: err.stack,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
     path: req.path,
     method: req.method,
-    body: req.body,
+    body: sanitizeBodyForLog(req.body),
   });
 
   // Handle known application errors
